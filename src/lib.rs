@@ -40,26 +40,27 @@ pub fn lastn(s: &str, n: usize) -> &str {
     return &s[idx..];
 }
 
-pub fn slice(s: &str, start: usize, end: usize) -> &str {
-    let mut start_byte = s.len();
-    let mut end_byte = s.len();
-
-    if end < start {
-        return "";
-    }
-
-    for (i, (byte_idx, _)) in s.char_indices().enumerate() {
-        if i == start {
-            start_byte = byte_idx;
+fn substr(s: &str, begin: usize, end: Option<usize>) -> Result<&str, &str> {
+    let mut begin_idx = s.len();
+    let mut end_idx = None;
+    let mut chars = 0;
+    for (i, (idx, _)) in s.char_indices().enumerate() {
+        chars += 1;
+        if i == begin {
+            begin_idx = idx;
         }
-
-        if i == end {
-            end_byte = byte_idx;
+        if i == end.unwrap_or(usize::MAX) {
+            end_idx = Some(idx);
             break;
         }
     }
-
-    return unsafe { s.get_unchecked(start_byte..end_byte) };
+    return if begin > chars || (begin == chars && end != Some(begin)) {
+        Err("")
+    } else if end_idx.is_some() || end.unwrap_or(chars) == chars {
+        Ok(&s[begin_idx..end_idx.unwrap_or(s.len())])
+    } else {
+        Err(&s[begin_idx..s.len()])
+    }
 }
 
 #[cfg(test)]
@@ -102,16 +103,18 @@ mod tests {
     }
 
     #[test]
-    fn test_slice() {
-        assert_eq!("", slice("test", 0, 0));
-        assert_eq!("", slice("test", 3, 3));
-        assert_eq!("t", slice("test", 0, 1));
-        assert_eq!("es", slice("test", 1, 3));
-        assert_eq!("st", slice("test", 2, 10));
-
-        assert_eq!("", slice("test", 10, 15));
-        assert_eq!("", slice("", 0, 5));
-
-        assert_eq!("", slice("test", 3, 1));
+    fn test_substr() {
+        let s = "abc🙂";
+        assert_eq!(Ok("bc"), substr(s, 1, Some(3)));
+        assert_eq!(Ok("c🙂"), substr(s, 2, Some(4)));
+        assert_eq!(Ok("c🙂"), substr(s, 2, None));
+        assert_eq!(Err("c🙂"), substr(s, 2, Some(99)));
+        assert_eq!(Ok(""), substr(s, 2, Some(2)));
+        assert_eq!(Ok(""), substr(s, 4, Some(4)));
+        assert_eq!(Err(""), substr(s, 5, Some(5)));
+        assert_eq!(Err(""), substr(s, 5, Some(9)));
+        assert_eq!(Err(""), substr(s, 5, Some(1)));
+        assert_eq!(Ok(""), substr("", 0, Some(0)));
+        assert_eq!(Err(""), substr("", 0, Some(1)));
     }
 }
